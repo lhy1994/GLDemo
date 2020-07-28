@@ -1,5 +1,6 @@
 package com.lhy.learning.gldemo.render;
 
+import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 
@@ -15,8 +16,15 @@ public abstract class BaseRenderer implements GLSurfaceView.Renderer {
 
     protected int mProgram;
 
-    public BaseRenderer(){
+    private Context mContext;
+
+    public BaseRenderer(Context context) {
+        this.mContext = context;
         onInit();
+    }
+
+    protected Context getContext() {
+        return mContext;
     }
 
     public abstract void release();

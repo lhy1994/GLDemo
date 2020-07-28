@@ -1,5 +1,6 @@
 package com.lhy.learning.gldemo.render;
 
+import android.content.Context;
 import android.opengl.GLES20;
 
 import com.lhy.learning.gldemo.tool.ShaderHelper;
@@ -62,6 +63,10 @@ public class PointRenderer extends BaseRenderer {
      * 顶点坐标在OpenGL程序中的索引
      */
     private int aPositionLocation;
+
+    public PointRenderer(Context context) {
+        super(context);
+    }
 
     @Override
     public void onInit() {

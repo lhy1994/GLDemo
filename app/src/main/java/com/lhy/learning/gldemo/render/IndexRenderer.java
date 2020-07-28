@@ -6,15 +6,12 @@ import android.opengl.GLES20;
 import com.lhy.learning.gldemo.tool.ShaderHelper;
 
 import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-/**
- * @Author: liuhaoyuan
- * @CreateDate: 2020/7/24
- */
-public class ShapeRenderer extends BaseRenderer {
+public class IndexRenderer extends BaseRenderer {
     /**
      * 顶点着色器
      */
@@ -25,8 +22,6 @@ public class ShapeRenderer extends BaseRenderer {
             "{\n" +
             // gl_Position：GL中默认定义的输出变量，决定了当前顶点的最终位置
             "    gl_Position = a_Position;\n" +
-            // gl_PointSize：GL中默认定义的输出变量，决定了当前顶点的大小
-            "    gl_PointSize = 40.0;\n" +
             "}";
 
     /**
@@ -46,15 +41,31 @@ public class ShapeRenderer extends BaseRenderer {
      * 顶点坐标数据缓冲区
      */
     private FloatBuffer mVertexData;
+    /**
+     * 顶点索引数据缓冲区：ShortBuff，占2位的Byte
+     */
+    private ShortBuffer mVertexIndexBuffer;
 
     /**
-     * 顶点数据数组
+     * 顶点数据
      */
-    private float[] POINT_DATA = new float[]{
-            // 点的x,y坐标（x，y各占1个分量）
-            0f, 1f,
-            -1f, -1f,
-            1f, -1f};
+    private static final float[] POINT_DATA = {
+            -0.5f, -0.5f,
+            0.5f, -0.5f,
+            0.5f, 0.5f,
+            -0.5f, 0.5f,
+            0f, -1.0f,
+            0f, 1.0f,
+    };
+
+    /**
+     * 数组绘制的索引:当前是绘制三角形，所以是3个元素构成一个绘制顺序
+     */
+    private static final short[] VERTEX_INDEX = {
+            0, 1, 2,
+            0, 2, 3,
+            0, 4, 1,
+            3, 2, 5};
 
     /**
      * 颜色uniform在OpenGL程序中的索引
@@ -65,27 +76,23 @@ public class ShapeRenderer extends BaseRenderer {
      */
     private int aPositionLocation;
 
-    public ShapeRenderer(Context context) {
+    public IndexRenderer(Context context) {
         super(context);
-    }
-
-
-    @Override
-    public void onInit() {
-        // 分配一个块Native内存，用于与GL通讯传递。(我们通常用的数据存在于Dalvik的内存中，1.无法访问硬件；2.会被垃圾回收)
-        mVertexData = ShaderHelper.createFloatBuffer(POINT_DATA);
     }
 
     @Override
     public void release() {
-        GLES20.glDisableVertexAttribArray(aPositionLocation);
-        GLES20.glDisableVertexAttribArray(uColorLocation);
-        GLES20.glDeleteProgram(mProgram);
+
+    }
+
+    @Override
+    public void onInit() {
+        mVertexData = ShaderHelper.createFloatBuffer(POINT_DATA);
+        mVertexIndexBuffer = ShaderHelper.createShortBuffer(VERTEX_INDEX);
     }
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-// 设置刷新屏幕时候使用的颜色值,顺序是RGBA，值的范围从0~1。GLES20.glClear调用时使用该颜色值。
         GLES20.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         makeProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -111,16 +118,19 @@ public class ShapeRenderer extends BaseRenderer {
         GLES20.glEnableVertexAttribArray(aPositionLocation);
     }
 
-
     @Override
     public void onDrawFrame(GL10 gl) {
         //步骤1：使用glClearColor设置的颜色，刷新Surface
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         // 步骤2：更新u_Color的值，即更新画笔颜色
         GLES20.glUniform4f(uColorLocation, 0.0f, 0.0f, 1.0f, 1.0f);
+
+
         // 步骤3：使用数组绘制图形：1.绘制的图形类型；2.从顶点数组读取的起点；3.从顶点数组读取的顶点个数
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, POINT_DATA.length / 2);
+//        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, POINT_DATA.length / 2);
+        // 1. 绘制模式； 2. 从数组中读取的数据长度； 3. 加载的数据格式； 4. 读取的数据缓冲区
+        mVertexIndexBuffer.position(0);
+        GLES20.glDrawElements(GLES20.GL_TRIANGLES, VERTEX_INDEX.length,
+                GLES20.GL_UNSIGNED_SHORT, mVertexIndexBuffer);
     }
-
-
 }

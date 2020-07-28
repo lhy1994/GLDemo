@@ -1,5 +1,6 @@
 package com.lhy.learning.gldemo.render;
 
+import android.content.Context;
 import android.opengl.GLES20;
 
 import com.lhy.learning.gldemo.tool.ShaderHelper;
@@ -54,6 +55,10 @@ public class ColorRenderer extends BaseRenderer {
     private int mColorHandler;
     private FloatBuffer mVertexData;
     private FloatBuffer mColorData;
+
+    public ColorRenderer(Context context) {
+        super(context);
+    }
 
     @Override
     public void onInit() {
