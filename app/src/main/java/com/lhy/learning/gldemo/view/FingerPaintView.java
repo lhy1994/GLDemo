@@ -40,9 +40,17 @@ public class FingerPaintView extends GLSurfaceView {
 
     @Override
     public boolean onTouchEvent(final MotionEvent event) {
-        if (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_MOVE) {
-            mRenderer.addPoint(event.getX(), event.getY());
-            requestRender();
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                mRenderer.startLine(event.getX(), event.getY());
+                requestRender();
+                break;
+            case MotionEvent.ACTION_MOVE:
+                mRenderer.addPoint(event.getX(), event.getY());
+                requestRender();
+                break;
+            default:
+                break;
         }
         return true;
     }

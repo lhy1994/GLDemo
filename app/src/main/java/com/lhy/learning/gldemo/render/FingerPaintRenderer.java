@@ -24,34 +24,36 @@ public class FingerPaintRenderer extends BaseRenderer {
      * 顶点着色器
      */
     private static final String VERTEX_SHADER = "" +
-            // vec4：4个分量的向量：x、y、z、w
             "attribute vec4 a_Position;\n" +
             "void main()\n" +
             "{\n" +
-            // gl_Position：GL中默认定义的输出变量，决定了当前顶点的最终位置
             "    gl_Position = a_Position;\n" +
-            // gl_PointSize：GL中默认定义的输出变量，决定了当前顶点的大小
-            "    gl_PointSize = 40.0;\n" +
+            "    gl_PointSize = 10.0;\n" +
             "}";
 
     /**
      * 片段着色器
      */
     private static final String FRAGMENT_SHADER = "" +
-            // 定义所有浮点数据类型的默认精度；有lowp、mediump、highp 三种，但只有部分硬件支持片段着色器使用highp。(顶点着色器默认highp)
             "precision mediump float;\n" +
             "uniform mediump vec4 u_Color;\n" +
             "void main()\n" +
             "{\n" +
-            // gl_FragColor：GL中默认定义的输出变量，决定了当前片段的最终颜色
-            "    gl_FragColor = u_Color;\n" +
+            // 默认的点时方块，为了画出圆点，在片段着色器中裁剪
+            "    float dist = length(gl_PointCoord - vec2(0.5));\n" +
+            "    float value = -smoothstep(0.48, 0.5, dist) + 1.0;\n" +
+            "    if (value == 0.0) {\n" +
+            "        discard;\n" +
+            "    }\n" +
+            "    gl_FragColor = vec4(u_Color.r, u_Color.g, u_Color.b, u_Color.a * value);" +
+//            "    gl_FragColor = u_Color;\n" +
             "}";
 
     private FloatBuffer mVertexBuffer;
+    private ByteBuffer mBuffer;
     private int aPositionHandle;
     private int uColorHandle;
-
-    private int mPointCount;
+    private static final int INIT_MAX_VERTEX_COUNT = 64;
 
     public FingerPaintRenderer(Context context) {
         super(context);
@@ -64,11 +66,14 @@ public class FingerPaintRenderer extends BaseRenderer {
 
     @Override
     public void onInit() {
-        mVertexBuffer = ByteBuffer
+        mMaxVertexCount = INIT_MAX_VERTEX_COUNT;
+        mBuffer = ByteBuffer
                 // 分配顶点坐标分量个数 * Float占的Byte位数
-                .allocateDirect(1024 * 2 * ShaderHelper.BYTES_PER_FLOAT)
+                .allocateDirect(mMaxVertexCount * 2 * ShaderHelper.BYTES_PER_FLOAT)
                 // 按照本地字节序排序
-                .order(ByteOrder.nativeOrder())
+                .order(ByteOrder.nativeOrder());
+
+        mVertexBuffer = mBuffer
                 // Byte类型转Float类型
                 .asFloatBuffer();
     }
@@ -87,8 +92,7 @@ public class FingerPaintRenderer extends BaseRenderer {
         GLES20.glEnableVertexAttribArray(aPositionHandle);
 
         GLES20.glEnable(GL10.GL_BLEND);
-        GLES20.glEnable(GL10.GL_LINE_SMOOTH);
-        GLES20.glLineWidth(5f);
+        GLES20.glEnable(GL10.GL_POINT_SMOOTH);
     }
 
     @Override
@@ -96,7 +100,6 @@ public class FingerPaintRenderer extends BaseRenderer {
         super.onSurfaceChanged(gl, width, height);
         outputWidth = width;
         outputHeight = height;
-        Log.i("MyRenderer", "onSurfaceChanged: " + outputWidth + " h= " + height);
     }
 
     @Override
@@ -105,26 +108,65 @@ public class FingerPaintRenderer extends BaseRenderer {
         GLES20.glUniform4f(uColorHandle, 0.0f, 0.0f, 1.0f, 1.0f);
 
         mVertexBuffer.position(0);
+        GLES20.glVertexAttribPointer(aPositionHandle, 2, GLES20.GL_FLOAT,
+                false, 0, mVertexBuffer);
 
-        float[] ret = new float[2];
-        GLES20.glGetFloatv(GLES20.GL_ALIASED_LINE_WIDTH_RANGE, ret, 0);
-        Log.i("MyRenderer", "onDrawFrame: " + Arrays.toString(ret));
-
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, mPointCount);
+        GLES20.glEnable(GL10.GL_POINT_SMOOTH);
+        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, mVertexBufferIndex / 2);
     }
 
     private int mVertexBufferIndex = 0;
-    private volatile float mCurrX = 0f;
-    private volatile float mCurrY = 0f;
+    private volatile float mLastX = 0f;
+    private volatile float mLastY = 0f;
+    private int mPixelPerPoint = 2;
+    private int mMaxVertexCount = INIT_MAX_VERTEX_COUNT;
 
 
     public void addPoint(float x, float y) {
-        float newX = (x - outputWidth / 2f) / (outputWidth / 2f);
-        float newY = -(y - outputHeight / 2f) / (outputHeight / 2f);
-        mCurrX = newX;
-        mCurrY = newY;
-        mVertexBuffer.put(mVertexBufferIndex++, mCurrX);
-        mVertexBuffer.put(mVertexBufferIndex++, mCurrY);
-        mPointCount++;
+        int count = (int) Math.max(Math.ceil(Math.sqrt(Math.pow(x - mLastX, 2) + Math.pow(y - mLastY, 2))) / mPixelPerPoint, 1);
+        for (int i = 0; i < count; i++) {
+            if (mVertexBufferIndex / 2 >= mMaxVertexCount) {
+                reAllocBuffer();
+            }
+            float subX = mLastX + (x - mLastX) * (i * 1f / count);
+            float subY = mLastY + (y - mLastY) * (i * 1f / count);
+
+            mVertexBuffer.put(mVertexBufferIndex++, convertX(subX));
+            mVertexBuffer.put(mVertexBufferIndex++, convertY(subY));
+        }
+
+        mLastX = x;
+        mLastY = y;
+    }
+
+    public void startLine(float x, float y) {
+        if (mVertexBufferIndex / 2 >= mMaxVertexCount) {
+            reAllocBuffer();
+        }
+        mVertexBuffer.put(mVertexBufferIndex++, convertX(x));
+        mVertexBuffer.put(mVertexBufferIndex++, convertY(y));
+        mLastX = x;
+        mLastY = y;
+    }
+
+    private void reAllocBuffer() {
+        mMaxVertexCount = mMaxVertexCount * 2;
+        ByteBuffer buffer = ByteBuffer
+                // 分配顶点坐标分量个数 * Float占的Byte位数
+                .allocateDirect(mMaxVertexCount * 2 * ShaderHelper.BYTES_PER_FLOAT)
+                // 按照本地字节序排序
+                .order(ByteOrder.nativeOrder());
+        System.arraycopy(mBuffer.array(), 0, buffer.array(), 0, mBuffer.array().length);
+        mBuffer = buffer;
+        mVertexBuffer = buffer.asFloatBuffer();
+    }
+
+
+    private float convertX(float x) {
+        return (x - outputWidth / 2f) / (outputWidth / 2f);
+    }
+
+    private float convertY(float y) {
+        return -(y - outputHeight / 2f) / (outputHeight / 2f);
     }
 }
