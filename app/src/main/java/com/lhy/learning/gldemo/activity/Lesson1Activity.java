@@ -2,21 +2,19 @@ package com.lhy.learning.gldemo.activity;
 
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.view.View;
 
 import com.lhy.learning.gldemo.R;
-import com.lhy.learning.gldemo.render.ColorRenderer;
-import com.lhy.learning.gldemo.render.FBORenderer;
-import com.lhy.learning.gldemo.render.IndexRenderer;
-import com.lhy.learning.gldemo.render.MultiTexRenderer;
-import com.lhy.learning.gldemo.render.MultiTexRenderer2;
+import com.lhy.learning.gldemo.render.BaseRenderer;
+import com.lhy.learning.gldemo.render.FilterRenderer;
 import com.lhy.learning.gldemo.render.PointRenderer;
 import com.lhy.learning.gldemo.render.ShapeRenderer;
-import com.lhy.learning.gldemo.render.TexRenderer;
 import com.lhy.learning.gldemo.view.ImageGLSurfaceView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 public class Lesson1Activity extends AppCompatActivity {
+    private BaseRenderer mRenderer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,7 +28,18 @@ public class Lesson1Activity extends AppCompatActivity {
 //        surfaceView.setRenderer(new TexRenderer(this));
 //        surfaceView.setRenderer(new MultiTexRenderer(this));
 //        surfaceView.setRenderer(new MultiTexRenderer2(this));
-        surfaceView.setRenderer(new FBORenderer(this));
-        surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+//        surfaceView.setRenderer(new FBORenderer(this));
+        mRenderer = new FilterRenderer(this);
+        surfaceView.setRenderer(mRenderer);
+        surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        surfaceView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                surfaceView.requestRender();
+                if (mRenderer instanceof FilterRenderer) {
+                    ((FilterRenderer) mRenderer).next();
+                }
+            }
+        });
     }
 }

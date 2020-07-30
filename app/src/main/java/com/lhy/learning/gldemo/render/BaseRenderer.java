@@ -17,6 +17,8 @@ public abstract class BaseRenderer implements GLSurfaceView.Renderer {
     protected int mProgram;
 
     private Context mContext;
+    protected volatile int outputWidth;
+    protected volatile int outputHeight;
 
     public BaseRenderer(Context context) {
         this.mContext = context;
@@ -38,17 +40,7 @@ public abstract class BaseRenderer implements GLSurfaceView.Renderer {
      * @param fragmentShader 片段着色器代码
      */
     protected void makeProgram(String vertexShader, String fragmentShader) {
-        // 步骤1：编译顶点着色器
-        int vertexShaderId = ShaderHelper.compileVertexShader(vertexShader);
-        // 步骤2：编译片段着色器
-        int fragmentShaderId = ShaderHelper.compileFragmentShader(fragmentShader);
-        // 步骤3：将顶点着色器、片段着色器进行链接，组装成一个OpenGL程序
-        mProgram = ShaderHelper.linkProgram(vertexShaderId, fragmentShaderId);
-
-        ShaderHelper.validateProgram(mProgram);
-
-        // 步骤4：通知OpenGL开始使用该程序
-        GLES20.glUseProgram(mProgram);
+        mProgram = ShaderHelper.makeProgram(vertexShader, fragmentShader);
     }
 
     protected int getUniform(String name) {
@@ -61,6 +53,8 @@ public abstract class BaseRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
+        outputWidth = width;
+        outputHeight = height;
         GLES20.glViewport(0, 0, width, height);
     }
 
